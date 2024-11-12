@@ -4,6 +4,13 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import os
 import logging
+from collections import defaultdict
+from datetime import datetime
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+
+session_data = defaultdict(list)
 
 load_dotenv()
 app = Flask(__name__)
@@ -80,10 +87,20 @@ def handle_question():
     # Get the user's spoken question and subject context
     question = request.values.get('SpeechResult', '')
     subject = request.values.get('subject', 'general')
+    caller_number = request.values.get('From', 'anonymous')
     
     try:
         # Generate AI response
         ai_response = generate_ai_response(question, subject)
+        
+        qa_pair = {
+            'question': question,
+            'answer': ai_response,
+            'subject': subject,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        session_data[caller_number].append(qa_pair)
+        logger.info(f"Stored Q&A for caller {caller_number}")
         
         # Convert AI response to speech
         response.say(ai_response)
@@ -143,12 +160,53 @@ def generate_ai_response(question, subject):
                 {"role": "user", "content": prompt}
             ]
         )
-        logger.info("completion", completion.choices)
+        logger.info("completion", completion.choices[0].message)
         return completion.choices[0].message.content
         
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
         return "I apologize, but I'm having trouble generating a response right now. Please try asking your question again."
 
+
+# Add this function to test our setup
+@app.route("/test-setup", methods=['GET'])
+def test_setup():
+    try:
+        # Test 1: Session tracking
+        test_caller = 'test_phone'
+        test_qa = {
+            'question': 'test question',
+            'answer': 'test answer',
+            'subject': 'Python Development',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        session_data[test_caller].append(test_qa)
+        
+        # Test 2: SendGrid
+        message = Mail(
+            from_email=os.getenv('SENDGRID_FROM_EMAIL'),  # Make sure this is in your .env
+            to_emails=os.getenv('TEST_TO_EMAIL'),  # Add this to your .env
+            subject='Test Setup - Developer Voice Assistant',
+            html_content='<p>This is a test email to verify SendGrid setup.</p>')
+        
+        sg = SendGridAPIClient(os.getenv('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        print(f"response", response)
+        logger.info("info logger", response)
+        
+        return {
+            'session_test': 'OK',
+            'sendgrid_test': 'OK',
+            'sendgrid_status': response.status_code,
+            'session_data': dict(session_data)  # Convert to dict for display
+        }
+    except Exception as e:
+        logger.info("e",e)
+        print(f"error", e)
+        return {
+            'error': str(e)
+        }, 500
+        
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=os.getenv('PORT', 5001))
