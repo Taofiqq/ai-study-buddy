@@ -208,7 +208,7 @@ def send_summary():
     try:
         message = Mail(
             from_email=os.getenv('SENDGRID_FROM_EMAIL'),
-            to_emails=email,
+            to_emails=os.getenv('TEST_TO_EMAIL'),
             subject='Your Developer Voice Assistant Session Summary',
             html_content=generate_summary_html(session_data[caller_number])
         )
