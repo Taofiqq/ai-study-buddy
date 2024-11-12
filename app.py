@@ -178,26 +178,34 @@ def handle_summary():
     response = VoiceResponse()
     caller_number = request.values.get('From', 'anonymous')
     
-    # Check if there's session data to send
+    logger.info("from email", os.getenv('SENDGRID_FROM_EMAIL'))
+    logger.info("to email", os.getenv('TEST_TO_EMAIL'))
+    
     if not session_data[caller_number]:
         response.say("No questions were asked in this session.")
-        response.say("Thank you for using Developer Voice Assistant. Happy coding!")
-        return str(response)
+    else:
+        # Send email directly without asking for address
+        try:
+            message = Mail(
+                from_email=os.getenv('SENDGRID_FROM_EMAIL'),
+                to_emails=os.getenv('TEST_TO_EMAIL'),
+                subject='Your Developer Voice Assistant Session Summary',
+                html_content=generate_summary_html(session_data[caller_number])
+            )
+            
+            sg = SendGridAPIClient(os.getenv('SENDGRID_API_KEY'))
+            sg.send(message)
+            response.say("I've sent your session summary to your email.")
+            session_data[caller_number].clear()
+        except Exception as e:
+            logger.error(f"Error sending email: {e}")
+            response.say("Sorry, there was an error sending the summary.")
     
-    # Ask for email
-    gather = response.gather(
-        input='speech',
-        action='/send-summary',
-        method='POST',
-        language='en-US',
-        timeout=5
-    )
-    gather.say("Please speak your email address where you'd like to receive the session summary.")
-    
+    response.say("Thank you for using Developer Voice Assistant. Happy coding!")
     return str(response)
 
-@app.route("/send-summary", methods=['POST'])
-def send_summary():
+# @app.route("/send-summary", methods=['POST'])
+# def send_summary():
     """Send email summary of the session"""
     logger.info("=======SENDING SUMMARY==========")
     response = VoiceResponse()
