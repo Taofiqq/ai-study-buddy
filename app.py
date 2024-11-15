@@ -21,6 +21,10 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@app.route("/")
+def index():
+   return "AI Developer Learning Assistant is running!"
+
 @app.route("/voice", methods=['POST'])
 def voice():
     """Handle incoming calls with an interactive menu"""
@@ -200,37 +204,6 @@ def handle_summary():
         except Exception as e:
             logger.error(f"Error sending email: {e}")
             response.say("Sorry, there was an error sending the summary.")
-    
-    response.say("Thank you for using Developer Voice Assistant. Happy coding!")
-    return str(response)
-
-# @app.route("/send-summary", methods=['POST'])
-# def send_summary():
-    """Send email summary of the session"""
-    logger.info("=======SENDING SUMMARY==========")
-    response = VoiceResponse()
-    email = request.values.get('SpeechResult', '').lower().replace(' at ', '@')
-    caller_number = request.values.get('From', 'anonymous')
-    
-    logger.info(f"Extracted email from voice: {email}")
-    try:
-        message = Mail(
-            from_email=os.getenv('SENDGRID_FROM_EMAIL'),
-            to_emails=os.getenv('TEST_TO_EMAIL'),
-            subject='Your Developer Voice Assistant Session Summary',
-            html_content=generate_summary_html(session_data[caller_number])
-        )
-        
-        sg = SendGridAPIClient(os.getenv('SENDGRID_API_KEY'))
-        sg.send(message)
-        
-        response.say("Great! I've sent the session summary to your email.")
-        # Clear the session data after sending
-        session_data[caller_number].clear()
-        
-    except Exception as e:
-        logger.error(f"Error sending email: {e}")
-        response.say("I'm sorry, there was an error sending the email.")
     
     response.say("Thank you for using Developer Voice Assistant. Happy coding!")
     return str(response)
